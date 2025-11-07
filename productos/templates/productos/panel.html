@@ -98,6 +98,7 @@
 
   {{ categorias|json_script:"categorias-data" }}
   <!-- Aqui se usan APIs -->
+  <!-- Consumo de la API REST desde el frontend -->
   <script>
     const feedback = document.getElementById("feedback");
     const form = document.getElementById("productoForm");
@@ -251,6 +252,7 @@
       tablaProductos.innerHTML = contenido;
     }
 
+    // Consume GET /api/productos/ para llenar la tabla
     async function cargarProductos() {
       tablaProductos.innerHTML = `
         <tr>
@@ -274,6 +276,7 @@
       }
     }
 
+    // Consume GET /api/categorias/ para poblar el select
     async function cargarCategorias() {
       const seleccionActual = inputs.categoria.value;
       try {
@@ -289,6 +292,7 @@
       }
     }
 
+    // Consume POST /api/productos/ o PUT /api/productos/<id>/
     async function guardarProducto(evento) {
       evento.preventDefault();
       const id = productoIdField.value;
@@ -333,6 +337,7 @@
       }
     }
 
+    // Consume DELETE /api/productos/<id>/
     async function eliminarProducto(id) {
       if (!confirm("¿Seguro que deseas eliminar este producto?")) {
         return;
@@ -379,6 +384,7 @@
       }
     }
 
+    // Consume POST /api/categorias/
     async function crearCategoria(evento) {
       evento.preventDefault();
       const nombre = categoriaNombreInput.value.trim();

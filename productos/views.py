@@ -92,7 +92,7 @@ def panel_productos(request):
     )
 
 
-# Aqui se usan APIs
+# API REST consumida por el panel (GET lista / POST crear)
 @csrf_protect
 @require_http_methods(["GET", "POST"])
 def api_productos(request):
@@ -114,7 +114,7 @@ def api_productos(request):
     return JsonResponse(_serialize_producto(producto), status=201)
 
 
-# Aqui se usan APIs
+# API REST consumida por el panel para detalle CRUD
 @csrf_protect
 @require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
 def api_producto_detalle(request, pid):
@@ -142,7 +142,7 @@ def api_producto_detalle(request, pid):
     return HttpResponse(status=204)
 
 
-# Aqui se usan APIs
+# API REST consumida por el panel para gestionar categorías
 @csrf_protect
 @require_http_methods(["GET", "POST"])
 def api_categorias(request):
