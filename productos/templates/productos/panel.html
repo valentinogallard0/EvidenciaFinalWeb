@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Panel de productos</title>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container py-5">
+  <h1 class="mb-4">Administrar productos</h1>
+
+  <div id="feedback" class="mb-3" role="alert"></div>
+
+  <div class="row">
+    <div class="col-lg-4 mb-4">
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <span id="formTitle">Nuevo producto</span>
+        </div>
+        <div class="card-body">
+          <form id="productoForm" novalidate>
+            <input type="hidden" id="productoId">
+            <div class="mb-3">
+              <label class="form-label" for="nombre">Nombre</label>
+              <input class="form-control" type="text" id="nombre" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="descripcion">Descripción</label>
+              <textarea class="form-control" id="descripcion" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="precio">Precio</label>
+              <input class="form-control" type="number" step="0.01" id="precio" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="stock">Stock</label>
+              <input class="form-control" type="number" min="0" id="stock" value="0" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="categoria">Categoría</label>
+              <select class="form-select" id="categoria" required></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="imagen">URL de la imagen</label>
+              <input class="form-control" type="url" id="imagen">
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary" id="submitBtn">Crear</button>
+              <button type="button" class="btn btn-outline-secondary d-none" id="cancelBtn">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mt-4">
+        <div class="card-header">Nueva categoría</div>
+        <div class="card-body">
+          <form id="categoriaForm" class="row g-2" novalidate>
+            <div class="col-12">
+              <label class="form-label" for="categoriaNombre">Nombre de la categoría</label>
+              <input class="form-control" type="text" id="categoriaNombre" required>
+            </div>
+            <div class="col-12 d-flex gap-2">
+              <button type="submit" class="btn btn-outline-success">Agregar categoría</button>
+              <button type="button" class="btn btn-outline-secondary" id="limpiarCategoriaBtn">Limpiar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header">Productos registrados</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Nombre</th>
+                  <th scope="col">Precio</th>
+                  <th scope="col">Stock</th>
+                  <th scope="col" class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaProductos">
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">Cargando productos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{ categorias|json_script:"categorias-data" }}
+  <!-- Aqui se usan APIs -->
+  <script>
+    const feedback = document.getElementById("feedback");
+    const form = document.getElementById("productoForm");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const formTitle = document.getElementById("formTitle");
+    const tablaProductos = document.getElementById("tablaProductos");
+    const productoIdField = document.getElementById("productoId");
+    const categoriaForm = document.getElementById("categoriaForm");
+    const categoriaNombreInput = document.getElementById("categoriaNombre");
+    const limpiarCategoriaBtn = document.getElementById("limpiarCategoriaBtn");
+    const categoriasDataElement = document.getElementById("categorias-data");
+
+    let categoriasCache = [];
+    let productosCache = [];
+
+    if (categoriasDataElement) {
+      try {
+        categoriasCache = JSON.parse(categoriasDataElement.textContent || "[]");
+      } catch (error) {
+        categoriasCache = [];
+      }
+    }
+
+    const inputs = {
+      nombre: document.getElementById("nombre"),
+      descripcion: document.getElementById("descripcion"),
+      precio: document.getElementById("precio"),
+      stock: document.getElementById("stock"),
+      imagen: document.getElementById("imagen"),
+      categoria: document.getElementById("categoria"),
+    };
+
+    function getCSRFToken() {
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? match[1] : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function setFeedback(message, type = "success") {
+      if (!message) {
+        feedback.innerHTML = "";
+        feedback.className = "mb-3";
+        return;
+      }
+      const alertClass = type === "success" ? "alert-success" : "alert-danger";
+      feedback.className = `mb-3 alert ${alertClass}`;
+      feedback.textContent = message;
+    }
+
+    function renderCategoriasOptions(seleccion = null) {
+      if (!categoriasCache.length) {
+        inputs.categoria.innerHTML = '<option value="">Crea una categoría primero</option>';
+        inputs.categoria.disabled = true;
+        submitBtn.disabled = true;
+        return;
+      }
+      inputs.categoria.disabled = false;
+      submitBtn.disabled = false;
+      inputs.categoria.innerHTML = categoriasCache
+        .map((categoria) => `<option value="${categoria.id}">${escapeHtml(categoria.nombre)}</option>`)
+        .join("");
+      if (seleccion && categoriasCache.find((cat) => String(cat.id) === String(seleccion))) {
+        inputs.categoria.value = String(seleccion);
+      }
+      if (!inputs.categoria.value) {
+        inputs.categoria.value = String(categoriasCache[0].id);
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      productoIdField.value = "";
+      renderCategoriasOptions();
+      submitBtn.textContent = "Crear";
+      formTitle.textContent = "Nuevo producto";
+      cancelBtn.classList.add("d-none");
+      inputs.stock.value = "0";
+    }
+
+    function setFormValues(producto) {
+      productoIdField.value = producto.id;
+      inputs.nombre.value = producto.nombre;
+      inputs.descripcion.value = producto.descripcion || "";
+      inputs.precio.value = producto.precio;
+      inputs.stock.value = producto.stock;
+      inputs.imagen.value = producto.imagen || "";
+      if (producto.categoria?.id) {
+        renderCategoriasOptions(producto.categoria.id);
+      }
+      submitBtn.textContent = "Actualizar";
+      formTitle.textContent = `Editar producto #${producto.id}`;
+      cancelBtn.classList.remove("d-none");
+    }
+
+    function productoRow(producto) {
+      return `
+        <tr data-id="${producto.id}">
+          <td>${producto.id}</td>
+          <td>${escapeHtml(producto.nombre)}</td>
+          <td>$${escapeHtml(producto.precio)}</td>
+          <td>${escapeHtml(producto.stock)}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary me-2" data-action="editar">Editar</button>
+            <button class="btn btn-sm btn-outline-danger" data-action="eliminar">Eliminar</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderProductos() {
+      if (!productosCache.length) {
+        tablaProductos.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center py-4 text-muted">Aún no hay productos registrados.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      const agrupados = new Map();
+      productosCache.forEach((producto) => {
+        const categoriaNombre = producto.categoria?.nombre || "Sin categoría";
+        if (!agrupados.has(categoriaNombre)) {
+          agrupados.set(categoriaNombre, []);
+        }
+        agrupados.get(categoriaNombre).push(producto);
+      });
+
+      const categoriasOrdenadas = Array.from(agrupados.keys()).sort((a, b) => a.localeCompare(b));
+      let contenido = "";
+      categoriasOrdenadas.forEach((nombreCategoria) => {
+        contenido += `
+          <tr class="table-primary">
+            <td colspan="5">${escapeHtml(nombreCategoria)}</td>
+          </tr>
+        `;
+        agrupados.get(nombreCategoria).forEach((producto) => {
+          contenido += productoRow(producto);
+        });
+      });
+
+      tablaProductos.innerHTML = contenido;
+    }
+
+    async function cargarProductos() {
+      tablaProductos.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center py-4 text-muted">Cargando productos...</td>
+        </tr>
+      `;
+      try {
+        const respuesta = await fetch("/api/productos/");
+        if (!respuesta.ok) {
+          throw new Error("No se pudo obtener la lista de productos.");
+        }
+        const datos = await respuesta.json();
+        productosCache = datos.results || [];
+        renderProductos();
+      } catch (error) {
+        tablaProductos.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center py-4 text-danger">${escapeHtml(error.message)}</td>
+          </tr>
+        `;
+      }
+    }
+
+    async function cargarCategorias() {
+      const seleccionActual = inputs.categoria.value;
+      try {
+        const respuesta = await fetch("/api/categorias/");
+        if (!respuesta.ok) {
+          throw new Error("No se pudo obtener la lista de categorías.");
+        }
+        const datos = await respuesta.json();
+        categoriasCache = datos.results || [];
+        renderCategoriasOptions(productoIdField.value ? seleccionActual : null);
+      } catch (error) {
+        setFeedback(error.message, "error");
+      }
+    }
+
+    async function guardarProducto(evento) {
+      evento.preventDefault();
+      const id = productoIdField.value;
+      const payload = {
+        nombre: inputs.nombre.value.trim(),
+        descripcion: inputs.descripcion.value,
+        precio: inputs.precio.value,
+        stock: inputs.stock.value,
+        imagen: inputs.imagen.value.trim(),
+        categoria: inputs.categoria.value,
+      };
+      const url = id ? `/api/productos/${id}/` : "/api/productos/";
+      const metodo = id ? "PUT" : "POST";
+
+      try {
+        const respuesta = await fetch(url, {
+          method: metodo,
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (respuesta.status === 400) {
+          const { errors, error } = await respuesta.json();
+          const mensaje = error || Object.values(errors || {}).join(" ");
+          setFeedback(mensaje || "Revisa los datos ingresados.", "error");
+          return;
+        }
+
+        if (!respuesta.ok) {
+          throw new Error("No se pudo guardar el producto.");
+        }
+
+        await respuesta.json();
+        setFeedback(id ? "Producto actualizado." : "Producto creado.");
+        resetForm();
+        await cargarProductos();
+      } catch (error) {
+        setFeedback(error.message, "error");
+      }
+    }
+
+    async function eliminarProducto(id) {
+      if (!confirm("¿Seguro que deseas eliminar este producto?")) {
+        return;
+      }
+      try {
+        const respuesta = await fetch(`/api/productos/${id}/`, {
+          method: "DELETE",
+          headers: {
+            "X-CSRFToken": getCSRFToken(),
+          },
+        });
+        if (!respuesta.ok && respuesta.status !== 204) {
+          throw new Error("No se pudo eliminar el producto.");
+        }
+        if (productoIdField.value === String(id)) {
+          resetForm();
+        }
+        setFeedback("Producto eliminado.");
+        await cargarProductos();
+      } catch (error) {
+        setFeedback(error.message, "error");
+      }
+    }
+
+    function manejarAccionTabla(evento) {
+      const boton = evento.target.closest("button[data-action]");
+      if (!boton) {
+        return;
+      }
+      const fila = boton.closest("tr[data-id]");
+      const id = fila?.dataset.id;
+      if (!id) {
+        return;
+      }
+      if (boton.dataset.action === "editar") {
+        const producto = productosCache.find((item) => String(item.id) === String(id));
+        if (producto) {
+          setFormValues(producto);
+          setFeedback("");
+        }
+      }
+      if (boton.dataset.action === "eliminar") {
+        eliminarProducto(id);
+      }
+    }
+
+    async function crearCategoria(evento) {
+      evento.preventDefault();
+      const nombre = categoriaNombreInput.value.trim();
+      if (!nombre) {
+        setFeedback("El nombre de la categoría es obligatorio.", "error");
+        return;
+      }
+      try {
+        const respuesta = await fetch("/api/categorias/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+          body: JSON.stringify({ nombre }),
+        });
+        if (respuesta.status === 400) {
+          const { errors, error } = await respuesta.json();
+          const mensaje = error || Object.values(errors || {}).join(" ");
+          setFeedback(mensaje || "No se pudo crear la categoría.", "error");
+          return;
+        }
+        if (!respuesta.ok) {
+          throw new Error("No se pudo crear la categoría.");
+        }
+        const categoria = await respuesta.json();
+        categoriaNombreInput.value = "";
+        setFeedback("Categoría agregada.");
+        await cargarCategorias();
+        inputs.categoria.value = String(categoria.id);
+      } catch (error) {
+        setFeedback(error.message, "error");
+      }
+    }
+
+    renderCategoriasOptions();
+    resetForm();
+    cargarProductos();
+    cargarCategorias();
+
+    form.addEventListener("submit", guardarProducto);
+    cancelBtn.addEventListener("click", () => {
+      resetForm();
+      setFeedback("");
+    });
+    tablaProductos.addEventListener("click", manejarAccionTabla);
+    categoriaForm.addEventListener("submit", crearCategoria);
+    limpiarCategoriaBtn.addEventListener("click", () => {
+      categoriaNombreInput.value = "";
+      categoriaNombreInput.focus();
+    });
+  </script>
+</body>
+</html>
