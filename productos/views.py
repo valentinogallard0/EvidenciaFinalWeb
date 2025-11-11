@@ -80,16 +80,68 @@ def _serialize_producto(producto):
     }
 
 
+def _panel_context(page_key, hero_overrides=None):
+    hero = {
+        "eyebrow": "Panel central",
+        "title": "Panel de tienda",
+        "copy": "Administra productos y categorías desde este panel.",
+        "metric_label": "Estado",
+        "metric_value": "Activo",
+    }
+    if hero_overrides:
+        hero.update(hero_overrides)
+    return {
+        "page_key": page_key,
+        "hero": hero,
+        "categorias_totales": Categoria.objects.count(),
+    }
+
+
 @ensure_csrf_cookie
 def panel_productos(request):
     categorias = list(Categoria.objects.all().order_by("nombre").values("id", "nombre"))
-    return render(
-        request,
-        "productos/panel.html",
+    context = _panel_context(
+        "productos",
         {
-            "categorias": categorias,
+            "eyebrow": "Inventario central",
+            "title": "Agregar productos",
+            "copy": "Crea o edita los artículos que se muestran en tu catálogo.",
+            "metric_label": "Formulario",
+            "metric_value": "Listo",
         },
     )
+    context["categorias"] = categorias
+    return render(request, "productos/panel.html", context)
+
+
+@ensure_csrf_cookie
+def panel_categorias(request):
+    context = _panel_context(
+        "categorias",
+        {
+            "eyebrow": "Catálogo",
+            "title": "Gestionar categorías",
+            "copy": "Organiza tus productos agrupándolos en colecciones claras.",
+            "metric_label": "Acción",
+            "metric_value": "Categorizando",
+        },
+    )
+    return render(request, "productos/panel_categorias.html", context)
+
+
+@ensure_csrf_cookie
+def panel_catalogo(request):
+    context = _panel_context(
+        "catalogo",
+        {
+            "eyebrow": "Resumen",
+            "title": "Productos registrados",
+            "copy": "Consulta rápidamente el inventario y lanza acciones sobre cada producto.",
+            "metric_label": "Vista",
+            "metric_value": "Catálogo",
+        },
+    )
+    return render(request, "productos/panel_catalogo.html", context)
 
 
 # API REST consumida por el panel (GET lista / POST crear)

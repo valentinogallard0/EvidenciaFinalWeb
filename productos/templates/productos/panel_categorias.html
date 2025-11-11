@@ -1,0 +1,157 @@
+{% extends "productos/panel_layout.html" %}
+
+{% block hero_actions %}
+  <a href="{% url 'panel_productos' %}" class="btn btn-light btn-lg fw-semibold">Volver al formulario</a>
+  <a href="{% url 'panel_catalogo' %}" class="btn btn-outline-light btn-lg fw-semibold">Ver catálogo</a>
+{% endblock %}
+
+{% block content %}
+  <div id="feedback" class="alert-space mb-4" role="alert"></div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <section class="glass-card h-100">
+        <div class="mb-3">
+          <p class="eyebrow mb-1">Categorías</p>
+          <h2 class="h4 mb-1">Nueva categoría</h2>
+          <p class="text-muted small mb-0">Agrupa tus productos para encontrarlos más rápido.</p>
+        </div>
+        <form id="categoriaForm" class="row g-3" novalidate>
+          <div class="col-12">
+            <label class="form-label" for="categoriaNombre">Nombre de la categoría</label>
+            <input class="form-control" type="text" id="categoriaNombre" required placeholder="Ej. Accesorios">
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-outline-success flex-grow-1">Agregar categoría</button>
+            <button type="button" class="btn btn-outline-secondary flex-grow-1" id="limpiarCategoriaBtn">Limpiar</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="col-lg-7">
+      <section class="glass-card h-100">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+          <div>
+            <p class="eyebrow mb-1">Catálogo</p>
+            <h2 class="h5 mb-0">Categorías registradas</h2>
+          </div>
+          <button type="button" class="btn btn-outline-primary btn-refresh" id="refreshCategoriasBtn">
+            <span class="icon">⟳</span>
+            <span>Actualizar lista</span>
+          </button>
+        </div>
+        <ul class="list-group list-group-flush" id="listaCategorias">
+          <li class="list-group-item py-4 text-center text-muted">Cargando categorías...</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const feedback = document.getElementById("feedback");
+    const categoriaForm = document.getElementById("categoriaForm");
+    const categoriaNombreInput = document.getElementById("categoriaNombre");
+    const limpiarCategoriaBtn = document.getElementById("limpiarCategoriaBtn");
+    const refreshCategoriasBtn = document.getElementById("refreshCategoriasBtn");
+    const listaCategorias = document.getElementById("listaCategorias");
+
+    function getCSRFToken() {
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? match[1] : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function setFeedback(message, type = "success") {
+      if (!message) {
+        feedback.innerHTML = "";
+        feedback.className = "alert-space mb-4";
+        return;
+      }
+      const alertClass = type === "success" ? "alert-success" : "alert-danger";
+      feedback.className = `alert-space mb-4 alert ${alertClass}`;
+      feedback.textContent = message;
+    }
+
+    async function cargarCategorias() {
+      listaCategorias.innerHTML = '<li class="list-group-item py-4 text-center text-muted">Cargando categorías...</li>';
+      try {
+        const respuesta = await fetch("/api/categorias/");
+        if (!respuesta.ok) {
+          throw new Error("No se pudo obtener la lista de categorías.");
+        }
+        const datos = await respuesta.json();
+        const categorias = datos.results || [];
+        if (!categorias.length) {
+          listaCategorias.innerHTML = '<li class="list-group-item py-4 text-center text-muted">Aún no hay categorías.</li>';
+          return;
+        }
+        listaCategorias.innerHTML = categorias
+          .map(
+            (categoria) => `
+              <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div>
+                  <span class="fw-semibold">${escapeHtml(categoria.nombre)}</span>
+                </div>
+                <span class="badge rounded-pill bg-light text-dark">ID ${categoria.id}</span>
+              </li>`
+          )
+          .join("");
+      } catch (error) {
+        listaCategorias.innerHTML = `<li class="list-group-item py-4 text-center text-danger">${escapeHtml(error.message)}</li>`;
+      }
+    }
+
+    async function crearCategoria(evento) {
+      evento.preventDefault();
+      const nombre = categoriaNombreInput.value.trim();
+      if (!nombre) {
+        setFeedback("El nombre de la categoría es obligatorio.", "error");
+        return;
+      }
+      try {
+        const respuesta = await fetch("/api/categorias/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+          body: JSON.stringify({ nombre }),
+        });
+        if (respuesta.status === 400) {
+          const { errors, error } = await respuesta.json();
+          const mensaje = error || Object.values(errors || {}).join(" ");
+          setFeedback(mensaje || "No se pudo crear la categoría.", "error");
+          return;
+        }
+        if (!respuesta.ok) {
+          throw new Error("No se pudo crear la categoría.");
+        }
+        categoriaNombreInput.value = "";
+        setFeedback("Categoría agregada.");
+        await cargarCategorias();
+      } catch (error) {
+        setFeedback(error.message, "error");
+      }
+    }
+
+    categoriaForm.addEventListener("submit", crearCategoria);
+    limpiarCategoriaBtn.addEventListener("click", () => {
+      categoriaNombreInput.value = "";
+      categoriaNombreInput.focus();
+    });
+    refreshCategoriasBtn.addEventListener("click", cargarCategorias);
+
+    cargarCategorias();
+  </script>
+{% endblock %}
