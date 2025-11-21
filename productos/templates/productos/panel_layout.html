@@ -533,6 +533,16 @@
   </style>
 </head>
 <body>
+  <script>
+    (function () {
+      const loaderKey = "panel-loader-active";
+      try {
+        if (sessionStorage.getItem(loaderKey) === "1") {
+          document.body.classList.add("is-loading");
+        }
+      } catch (error) {}
+    })();
+  </script>
   <div class="page-shell container py-5">
     <header class="hero-card mb-4">
       <div>
@@ -583,15 +593,33 @@
     (function () {
       const links = document.querySelectorAll(".panel-link");
       const body = document.body;
+      const loaderKey = "panel-loader-active";
+      let pendingNavigation = false;
+
+      function activateLoader() {
+        if (!body.classList.contains("is-loading")) {
+          body.classList.add("is-loading");
+        }
+        try {
+          sessionStorage.setItem(loaderKey, "1");
+        } catch (error) {}
+      }
+
+      function clearLoaderState() {
+        body.classList.remove("is-loading");
+        pendingNavigation = false;
+        try {
+          sessionStorage.removeItem(loaderKey);
+        } catch (error) {}
+      }
 
       function showLoaderAndNavigate(href) {
-        if (!href) {
+        if (!href || pendingNavigation) {
           return;
         }
-        body.classList.add("is-loading");
-        setTimeout(() => {
-          window.location.href = href;
-        }, 180);
+        pendingNavigation = true;
+        activateLoader();
+        window.location.href = href;
       }
 
       links.forEach((link) => {
@@ -604,8 +632,12 @@
         });
       });
 
-      window.addEventListener("pageshow", () => {
-        body.classList.remove("is-loading");
+      window.addEventListener("beforeunload", activateLoader);
+      window.addEventListener("load", clearLoaderState);
+      window.addEventListener("pageshow", (event) => {
+        if (event.persisted) {
+          clearLoaderState();
+        }
       });
     })();
   </script>
