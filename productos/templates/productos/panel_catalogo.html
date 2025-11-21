@@ -172,9 +172,12 @@
       }
     }
 
-    async function eliminarProducto(id) {
+    async function eliminarProducto(id, fila) {
       if (!confirm("¿Seguro que deseas eliminar este producto?")) {
         return;
+      }
+      if (fila) {
+        fila.classList.add("row-removing");
       }
       try {
         const respuesta = await fetch(`/api/productos/${id}/`, {
@@ -187,8 +190,23 @@
           throw new Error("No se pudo eliminar el producto.");
         }
         setFeedback("Producto eliminado.");
-        await cargarProductos();
+        if (fila) {
+          fila.addEventListener(
+            "animationend",
+            () => {
+              productosCache = productosCache.filter((producto) => String(producto.id) !== String(id));
+              renderProductos();
+            },
+            { once: true },
+          );
+        } else {
+          productosCache = productosCache.filter((producto) => String(producto.id) !== String(id));
+          renderProductos();
+        }
       } catch (error) {
+        if (fila) {
+          fila.classList.remove("row-removing");
+        }
         setFeedback(error.message, "error");
       }
     }
@@ -204,7 +222,7 @@
         return;
       }
       if (boton.dataset.action === "eliminar") {
-        eliminarProducto(id);
+        eliminarProducto(id, fila);
       }
     }
 

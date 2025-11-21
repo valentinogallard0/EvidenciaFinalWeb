@@ -294,6 +294,94 @@
       padding: 0.45rem 0.85rem;
     }
 
+    .table tr.row-removing > * {
+      animation: rowSlideAway 0.6s ease forwards;
+    }
+
+    .success-frame {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      z-index: 10000;
+    }
+
+    .success-frame.is-active {
+      opacity: 1;
+    }
+
+    .success-frame__edge {
+      position: absolute;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .success-frame__edge--top,
+    .success-frame__edge--bottom {
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.65), rgba(16, 185, 129, 0.1), transparent);
+      animation: edgePulse 2.2s ease-in-out infinite;
+    }
+
+    .success-frame__edge--top {
+      top: 0;
+      transform-origin: top;
+    }
+
+    .success-frame__edge--bottom {
+      bottom: 0;
+      transform-origin: bottom;
+      transform: rotateX(180deg);
+    }
+
+    .success-frame__edge--left,
+    .success-frame__edge--right {
+      top: 0;
+      bottom: 0;
+      width: 120px;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.65), rgba(16, 185, 129, 0.1), transparent);
+      animation: edgePulse 2.4s ease-in-out infinite;
+    }
+
+    .success-frame__edge--left {
+      left: 0;
+    }
+
+    .success-frame__edge--right {
+      right: 0;
+      transform: scaleX(-1);
+    }
+
+    .success-frame__halo {
+      position: absolute;
+      inset: 1.2rem;
+      border-radius: 40px;
+      border: 2px solid rgba(110, 231, 183, 0.7);
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.5), 0 0 80px rgba(45, 212, 191, 0.35);
+      opacity: 0.75;
+      animation: haloPulse 1.6s ease-in-out infinite;
+    }
+
+    .success-frame__sparks {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .success-frame__spark {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(167, 243, 208, 0.9);
+      opacity: 0;
+      animation: sparkDrift 1.8s ease-out forwards;
+      filter: blur(0.5px);
+    }
+
     .page-loader {
       position: fixed;
       inset: 0;
@@ -386,9 +474,60 @@
       }
     }
 
+    @keyframes edgePulse {
+      0% {
+        opacity: 0.65;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+
+    @keyframes haloPulse {
+      0% {
+        opacity: 0.5;
+        transform: scale(0.995);
+      }
+      100% {
+        opacity: 0.85;
+        transform: scale(1.005);
+      }
+    }
+
+    @keyframes sparkDrift {
+      0% {
+        opacity: 0;
+        transform: scale(0.6);
+      }
+      20% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-140px) scale(1.2);
+      }
+    }
+
     @keyframes loaderSpin {
       to {
         transform: rotate(360deg);
+      }
+    }
+
+    @keyframes rowSlideAway {
+      0% {
+        transform: translateX(0);
+        opacity: 1;
+        filter: blur(0);
+      }
+      40% {
+        opacity: 0.7;
+        filter: blur(1px);
+      }
+      100% {
+        transform: translateX(120%);
+        opacity: 0;
+        filter: blur(4px);
       }
     }
   </style>

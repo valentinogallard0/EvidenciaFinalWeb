@@ -49,6 +49,15 @@
     </form>
   </section>
 
+  <div class="success-frame" id="successFrame" aria-hidden="true">
+    <div class="success-frame__edge success-frame__edge--top"></div>
+    <div class="success-frame__edge success-frame__edge--bottom"></div>
+    <div class="success-frame__edge success-frame__edge--left"></div>
+    <div class="success-frame__edge success-frame__edge--right"></div>
+    <div class="success-frame__halo"></div>
+    <div class="success-frame__sparks" id="successSparks"></div>
+  </div>
+
   {{ categorias|json_script:"categorias-data" }}
 {% endblock %}
 
@@ -60,11 +69,14 @@
     const submitBtn = document.getElementById("submitBtn");
     const formTitle = document.getElementById("formTitle");
     const productoIdField = document.getElementById("productoId");
+    const successFrame = document.getElementById("successFrame");
+    const successSparks = document.getElementById("successSparks");
     const categoriasDataElement = document.getElementById("categorias-data");
     const urlParams = new URLSearchParams(window.location.search);
     const productoInicial = urlParams.get("producto");
 
     let categoriasCache = [];
+    let successFrameTimeout = null;
 
     if (categoriasDataElement) {
       try {
@@ -126,6 +138,53 @@
       if (!inputs.categoria.value) {
         inputs.categoria.value = String(categoriasCache[0].id);
       }
+    }
+
+    function spawnSparks() {
+      if (!successSparks) {
+        return;
+      }
+      successSparks.innerHTML = "";
+      const total = 18;
+      const sides = ["left", "right", "top", "bottom"];
+      for (let i = 0; i < total; i += 1) {
+        const spark = document.createElement("span");
+        spark.className = "success-frame__spark";
+        const side = sides[Math.floor(Math.random() * sides.length)];
+        const offset = `${Math.random() * 80 + 10}%`;
+        if (side === "left") {
+          spark.style.left = "1%";
+          spark.style.top = offset;
+        } else if (side === "right") {
+          spark.style.right = "1%";
+          spark.style.top = offset;
+        } else if (side === "top") {
+          spark.style.top = "1%";
+          spark.style.left = offset;
+        } else {
+          spark.style.bottom = "1%";
+          spark.style.left = offset;
+        }
+        spark.style.animationDuration = `${1.2 + Math.random() * 0.8}s`;
+        successSparks.appendChild(spark);
+      }
+    }
+
+    function triggerSuccessFrame() {
+      if (!successFrame) {
+        return;
+      }
+      spawnSparks();
+      successFrame.classList.add("is-active");
+      if (successFrameTimeout) {
+        clearTimeout(successFrameTimeout);
+      }
+      successFrameTimeout = setTimeout(() => {
+        successFrame.classList.remove("is-active");
+        if (successSparks) {
+          successSparks.innerHTML = "";
+        }
+      }, 1900);
     }
 
     function resetForm() {
@@ -203,7 +262,11 @@
         }
 
         await respuesta.json();
-        setFeedback(id ? "Producto actualizado." : "Producto creado.");
+        const esCreacion = !id;
+        setFeedback(esCreacion ? "Producto creado." : "Producto actualizado.");
+        if (esCreacion) {
+          triggerSuccessFrame();
+        }
         resetForm();
       } catch (error) {
         setFeedback(error.message, "error");
